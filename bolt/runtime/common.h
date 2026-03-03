@@ -40,6 +40,14 @@ typedef int int32_t;
 #error "For Linux or MacOS only"
 #endif
 
+// __attribute__((force_align_arg_pointer)) is X86-specific
+#if defined(__x86_64__)
+#define ATTRIBUTE_FORCE_ALIGN_ARG_POINTER                                      \
+  __attribute__((force_align_arg_pointer))
+#else
+#define ATTRIBUTE_FORCE_ALIGN_ARG_POINTER
+#endif
+
 #define PROT_READ 0x1  /* Page can be read.  */
 #define PROT_WRITE 0x2 /* Page can be written.  */
 #define PROT_EXEC 0x4  /* Page can be executed.  */

@@ -1558,7 +1558,7 @@ extern "C" void __bolt_instr_clear_counters() {
 ///    to get a pointer to this function and call through the acquired
 ///    function pointer to dump profile data.
 ///
-extern "C" void __attribute((force_align_arg_pointer))
+extern "C" void ATTRIBUTE_FORCE_ALIGN_ARG_POINTER
 __bolt_instr_data_dump(int FD, const char *LibPath = nullptr,
                        const uint8_t *LibContents = nullptr,
                        uint64_t LibSize = 0) {
@@ -1657,7 +1657,7 @@ extern "C" void __bolt_instr_indirect_call();
 extern "C" void __bolt_instr_indirect_tailcall();
 
 /// Initialization code
-extern "C" void __attribute((force_align_arg_pointer)) __bolt_instr_setup() {
+extern "C" void ATTRIBUTE_FORCE_ALIGN_ARG_POINTER __bolt_instr_setup() {
   __bolt_ind_call_counter_func_pointer = __bolt_instr_indirect_call;
   __bolt_ind_tailcall_counter_func_pointer = __bolt_instr_indirect_tailcall;
   TextBaseAddress = getTextBaseAddress();
@@ -1705,7 +1705,7 @@ extern "C" void __attribute((force_align_arg_pointer)) __bolt_instr_setup() {
   }
 }
 
-extern "C" __attribute((force_align_arg_pointer)) void
+extern "C" ATTRIBUTE_FORCE_ALIGN_ARG_POINTER void
 instrumentIndirectCall(uint64_t Target, uint64_t IndCallID) {
   GlobalIndCallCounters[IndCallID].incrementVal(Target, *GlobalAlloc);
 }
@@ -1879,7 +1879,7 @@ extern "C" void __bolt_instr_data_dump() {
 // one extra leading underscore: _bolt_instr_setup -> __bolt_instr_setup.
 extern "C"
 __attribute__((section("__TEXT,__setup")))
-__attribute__((force_align_arg_pointer))
+ATTRIBUTE_FORCE_ALIGN_ARG_POINTER
 void _bolt_instr_setup() {
   __asm__ __volatile__(SAVE_ALL :::);
 
@@ -1890,7 +1890,7 @@ void _bolt_instr_setup() {
 
 extern "C"
 __attribute__((section("__TEXT,__fini")))
-__attribute__((force_align_arg_pointer))
+ATTRIBUTE_FORCE_ALIGN_ARG_POINTER
 void _bolt_instr_fini() {
   report("Bye!\n");
   __bolt_instr_data_dump();
