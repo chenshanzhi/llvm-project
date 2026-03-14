@@ -252,45 +252,6 @@ static bool isLoadUI(const MCInst &Inst) {
   }
 }
 
-// Load (register offset)
-static bool isLoadRO(const MCInst &Inst) {
-  switch (Inst.getOpcode()) {
-  case AArch64::LDRBBroX:   // ldrb   w0, [x1, x2, lsl  #0]
-  case AArch64::LDRBBroW:   // ldrb   w0, [x1, w2, uxtw #0]
-  case AArch64::LDRHHroX:   // ldrh   w0, [x1, x2, lsl  #1]
-  case AArch64::LDRHHroW:   // ldrh   w0, [x1, w2, uxtw #1]
-  case AArch64::LDRWroX:    // ldr    w0, [x1, x2, lsl  #2]
-  case AArch64::LDRWroW:    // ldr    w0, [x1, w2, uxtw #2]
-  case AArch64::LDRXroX:    // ldr    x0, [x1, x2, lsl  #3]
-  case AArch64::LDRXroW:    // ldr    x0, [x1, w2, uxtw #3]
-
-  case AArch64::LDRSBWroX:  // ldrsb  w0, [x1, x2, lsl  #0]
-  case AArch64::LDRSBWroW:  // ldrsb  w0, [x1, w2, uxtw #0]
-  case AArch64::LDRSBXroX:  // ldrsb  x0, [x1, x2, lsl  #0]
-  case AArch64::LDRSBXroW:  // ldrsb  x0, [x1, w2, uxtw #0]
-  case AArch64::LDRSHWroX:  // ldrsh  w0, [x1, x2, lsl  #1]
-  case AArch64::LDRSHWroW:  // ldrsh  w0, [x1, w2, uxtw #1]
-  case AArch64::LDRSHXroX:  // ldrsh  x0, [x1, x2, lsl  #1]
-  case AArch64::LDRSHXroW:  // ldrsh  x0, [x1, w2, uxtw #1]
-  case AArch64::LDRSWroX:   // ldrsw  x0, [x1, x2, lsl  #2]
-  case AArch64::LDRSWroW:   // ldrsw  x0, [x1, w2, uxtw #2]
-
-  case AArch64::LDRBroX:    // ldr    b0, [x1, x2, lsl  #0]
-  case AArch64::LDRBroW:    // ldr    b0, [x1, w2, uxtw #0]
-  case AArch64::LDRHroX:    // ldr    h0, [x1, x2, lsl  #1]
-  case AArch64::LDRHroW:    // ldr    h0, [x1, w2, uxtw #1]
-  case AArch64::LDRSroX:    // ldr    s0, [x1, x2, lsl  #2]
-  case AArch64::LDRSroW:    // ldr    s0, [x1, w2, uxtw #2]
-  case AArch64::LDRDroX:    // ldr    d0, [x1, x2, lsl  #3]
-  case AArch64::LDRDroW:    // ldr    d0, [x1, w2, uxtw #3]
-  case AArch64::LDRQroX:    // ldr    q0, [x1, x2, lsl  #4]
-  case AArch64::LDRQroW:    // ldr    q0, [x1, w2, uxtw #4]
-    return true;
-  default:
-    return false;
-  }
-}
-
 static bool isLoadPostIdx(const MCInst &Inst) {
   switch (Inst.getOpcode()) {
   case AArch64::LDRBBpost:  // ldrb   w0, [x1], #16
@@ -339,15 +300,83 @@ static bool isLoadPreIdx(const MCInst &Inst) {
   }
 }
 
-static std::optional<MCInst>
-createPrefetchImmOffset(MCRegister BaseReg, int64_t Imm, int64_t PrfOp) {
-  // Try to generate one PRFUM
-  if (Imm >= -256 && Imm <= 255)
-    return MCInstBuilder(AArch64::PRFUMi)
-               .addImm(PrfOp)
-               .addReg(BaseReg)
-               .addImm(Imm);
+// Load (register offset)
+static bool isLoadRO(const MCInst &Inst) {
+  switch (Inst.getOpcode()) {
+  case AArch64::LDRBBroX:   // ldrb   w0, [x1, x2, lsl  #0]
+  case AArch64::LDRBBroW:   // ldrb   w0, [x1, w2, uxtw #0]
+  case AArch64::LDRHHroX:   // ldrh   w0, [x1, x2, lsl  #1]
+  case AArch64::LDRHHroW:   // ldrh   w0, [x1, w2, uxtw #1]
+  case AArch64::LDRWroX:    // ldr    w0, [x1, x2, lsl  #2]
+  case AArch64::LDRWroW:    // ldr    w0, [x1, w2, uxtw #2]
+  case AArch64::LDRXroX:    // ldr    x0, [x1, x2, lsl  #3]
+  case AArch64::LDRXroW:    // ldr    x0, [x1, w2, uxtw #3]
 
+  case AArch64::LDRSBWroX:  // ldrsb  w0, [x1, x2, lsl  #0]
+  case AArch64::LDRSBWroW:  // ldrsb  w0, [x1, w2, uxtw #0]
+  case AArch64::LDRSBXroX:  // ldrsb  x0, [x1, x2, lsl  #0]
+  case AArch64::LDRSBXroW:  // ldrsb  x0, [x1, w2, uxtw #0]
+  case AArch64::LDRSHWroX:  // ldrsh  w0, [x1, x2, lsl  #1]
+  case AArch64::LDRSHWroW:  // ldrsh  w0, [x1, w2, uxtw #1]
+  case AArch64::LDRSHXroX:  // ldrsh  x0, [x1, x2, lsl  #1]
+  case AArch64::LDRSHXroW:  // ldrsh  x0, [x1, w2, uxtw #1]
+  case AArch64::LDRSWroX:   // ldrsw  x0, [x1, x2, lsl  #2]
+  case AArch64::LDRSWroW:   // ldrsw  x0, [x1, w2, uxtw #2]
+
+  case AArch64::LDRBroX:    // ldr    b0, [x1, x2, lsl  #0]
+  case AArch64::LDRBroW:    // ldr    b0, [x1, w2, uxtw #0]
+  case AArch64::LDRHroX:    // ldr    h0, [x1, x2, lsl  #1]
+  case AArch64::LDRHroW:    // ldr    h0, [x1, w2, uxtw #1]
+  case AArch64::LDRSroX:    // ldr    s0, [x1, x2, lsl  #2]
+  case AArch64::LDRSroW:    // ldr    s0, [x1, w2, uxtw #2]
+  case AArch64::LDRDroX:    // ldr    d0, [x1, x2, lsl  #3]
+  case AArch64::LDRDroW:    // ldr    d0, [x1, w2, uxtw #3]
+  case AArch64::LDRQroX:    // ldr    q0, [x1, x2, lsl  #4]
+  case AArch64::LDRQroW:    // ldr    q0, [x1, w2, uxtw #4]
+    return true;
+  default:
+    return false;
+  }
+}
+
+static int getLoadROShift(const MCInst &Inst) {
+  switch (Inst.getOpcode()) {
+  case AArch64::LDRBBroX:   return 0; // ldrb   w0, [x1, x2, lsl  #0]
+  case AArch64::LDRBBroW:   return 0; // ldrb   w0, [x1, w2, uxtw #0]
+  case AArch64::LDRHHroX:   return 1; // ldrh   w0, [x1, x2, lsl  #1]
+  case AArch64::LDRHHroW:   return 1; // ldrh   w0, [x1, w2, uxtw #1]
+  case AArch64::LDRWroX:    return 2; // ldr    w0, [x1, x2, lsl  #2]
+  case AArch64::LDRWroW:    return 2; // ldr    w0, [x1, w2, uxtw #2]
+  case AArch64::LDRXroX:    return 3; // ldr    x0, [x1, x2, lsl  #3]
+  case AArch64::LDRXroW:    return 3; // ldr    x0, [x1, w2, uxtw #3]
+
+  case AArch64::LDRSBWroX:  return 0; // ldrsb  w0, [x1, x2, lsl  #0]
+  case AArch64::LDRSBWroW:  return 0; // ldrsb  w0, [x1, w2, uxtw #0]
+  case AArch64::LDRSBXroX:  return 0; // ldrsb  x0, [x1, x2, lsl  #0]
+  case AArch64::LDRSBXroW:  return 0; // ldrsb  x0, [x1, w2, uxtw #0]
+  case AArch64::LDRSHWroX:  return 1; // ldrsh  w0, [x1, x2, lsl  #1]
+  case AArch64::LDRSHWroW:  return 1; // ldrsh  w0, [x1, w2, uxtw #1]
+  case AArch64::LDRSHXroX:  return 1; // ldrsh  x0, [x1, x2, lsl  #1]
+  case AArch64::LDRSHXroW:  return 1; // ldrsh  x0, [x1, w2, uxtw #1]
+  case AArch64::LDRSWroX:   return 2; // ldrsw  x0, [x1, x2, lsl  #2]
+  case AArch64::LDRSWroW:   return 2; // ldrsw  x0, [x1, w2, uxtw #2]
+
+  case AArch64::LDRBroX:    return 0; // ldr    b0, [x1, x2, lsl  #0]
+  case AArch64::LDRBroW:    return 0; // ldr    b0, [x1, w2, uxtw #0]
+  case AArch64::LDRHroX:    return 1; // ldr    h0, [x1, x2, lsl  #1]
+  case AArch64::LDRHroW:    return 1; // ldr    h0, [x1, w2, uxtw #1]
+  case AArch64::LDRSroX:    return 2; // ldr    s0, [x1, x2, lsl  #2]
+  case AArch64::LDRSroW:    return 2; // ldr    s0, [x1, w2, uxtw #2]
+  case AArch64::LDRDroX:    return 3; // ldr    d0, [x1, x2, lsl  #3]
+  case AArch64::LDRDroW:    return 3; // ldr    d0, [x1, w2, uxtw #3]
+  case AArch64::LDRQroX:    return 4; // ldr    q0, [x1, x2, lsl  #4]
+  case AArch64::LDRQroW:    return 4; // ldr    q0, [x1, w2, uxtw #4]
+  default: llvm_unreachable("Unsupported LoadRO");
+  }
+}
+
+static std::optional<MCInst>
+tryEmitOnePrefetchInst(MCRegister BaseReg, int64_t Imm, int64_t PrfOp) {
   // Try to generate one PRFM (immediate)
   if (Imm >= 0 && Imm % 8 == 0 && (Imm >> 3) <= 0xfff)
     return MCInstBuilder(AArch64::PRFMui)
@@ -355,7 +384,41 @@ createPrefetchImmOffset(MCRegister BaseReg, int64_t Imm, int64_t PrfOp) {
                .addReg(BaseReg)
                .addImm(Imm >> 3);
 
+  // Try to generate one PRFUM
+  if (Imm >= -256 && Imm <= 255)
+    return MCInstBuilder(AArch64::PRFUMi)
+               .addImm(PrfOp)
+               .addReg(BaseReg)
+               .addImm(Imm);
+
   return std::nullopt;
+}
+
+static InstructionListType emitPrefetchImmOffset(MCRegister BaseReg,
+    int64_t Offset, int64_t PrfOp, MCRegister UsableReg) {
+  InstructionListType Code;
+
+  // Try to emit one prefetch instruction: PRFM(immediate) or PRFUM
+  if (auto PrfInst = tryEmitOnePrefetchInst(BaseReg, Offset, PrfOp)) {
+    Code.emplace_back(*PrfInst);
+    return Code;
+  }
+
+  if (UsableReg == 0) {
+    errs() << "BOLT-ERROR: No Usable Regs for LoadDataPrefetch\n";
+    return Code;
+  }
+  assert(AArch64::GPR64RegClass.contains(UsableReg));
+
+  // Move `Offset` into `UsableReg`, then emit PRFM(regsiter)
+  Code = createMOVImm(UsableReg, 64, Offset);
+  Code.emplace_back(MCInstBuilder(AArch64::PRFMroX)
+                        .addImm(PrfOp)
+                        .addReg(BaseReg)
+                        .addReg(UsableReg)
+                        .addImm(0)
+                        .addImm(0));
+  return Code;
 }
 
 static InstructionListType emitPrefetchLoadUnscaled(const MCInst &Inst,
@@ -364,7 +427,7 @@ static InstructionListType emitPrefetchLoadUnscaled(const MCInst &Inst,
   int64_t Imm9 = Inst.getOperand(2).getImm();
 
   LLVM_DEBUG({
-    dbgs() << "prefetchLoadUnscaled\n"
+    dbgs() << "Try to emit prefetch for LoadUnscaled\n"
            << "  BaseReg: " << BaseReg << '\n'
            << "  Imm9: " << Imm9 << '\n'
            << "  PrfOffset: " << PrfOffset << '\n'
@@ -372,27 +435,127 @@ static InstructionListType emitPrefetchLoadUnscaled(const MCInst &Inst,
            << "  UsableReg: " << UsableReg << '\n';
   });
 
-  InstructionListType Code;
-
-  int64_t NewImm = Imm9 + PrfOffset;
-  if (auto PrfInst = createPrefetchImmOffset(BaseReg, NewImm, PrfOp)) {
-    Code.emplace_back(*PrfInst);
-    Code.emplace_back(Inst);
-    return Code;
-  }
-
-  if (UsableReg == 0) {
-    errs() << "BOLT-ERROR: No Usable Regs for LoadDataPrefetch\n";
-    Code.emplace_back(Inst);
-    return Code;
-  }
-
-  // TODO:
-
+  int64_t Offset = Imm9 + PrfOffset;
+  auto Code = emitPrefetchImmOffset(BaseReg, Offset, PrfOp, UsableReg);
   Code.emplace_back(Inst);
   return Code;
 }
 
+static InstructionListType emitPrefetchLoadUI(const MCInst &Inst,
+    int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
+
+  int Scale = AArch64InstrInfo::getMemScale(Inst.getOpcode());
+  MCRegister BaseReg = Inst.getOperand(1).getReg();
+  int64_t Imm12 = Inst.getOperand(2).getImm();
+
+  LLVM_DEBUG({
+    dbgs() << "Try to emit prefetch for LoadUI\n"
+           << "  BaseReg: " << BaseReg << '\n'
+           << "  Imm12: " << Imm12 << '\n'
+           << "  Scale: " << Scale << '\n'
+           << "  PrfOffset: " << PrfOffset << '\n'
+           << "  PrfOp: " << PrfOp << '\n'
+           << "  UsableReg: " << UsableReg << '\n';
+  });
+
+  int64_t Offset = (Imm12 * Scale) + PrfOffset;
+  auto Code = emitPrefetchImmOffset(BaseReg, Offset, PrfOp, UsableReg);
+  Code.emplace_back(Inst);
+  return Code;
+}
+
+static InstructionListType emitPrefetchLoadPostIdx(const MCInst &Inst,
+    int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
+
+  MCRegister BaseReg = Inst.getOperand(2).getReg();
+
+  LLVM_DEBUG({
+    dbgs() << "Try to emit prefetch for LoadPostIdx\n"
+           << "  BaseReg: " << BaseReg << '\n'
+           << "  PrfOffset: " << PrfOffset << '\n'
+           << "  PrfOp: " << PrfOp << '\n'
+           << "  UsableReg: " << UsableReg << '\n';
+  });
+
+  auto Code = emitPrefetchImmOffset(BaseReg, PrfOffset, PrfOp, UsableReg);
+  Code.emplace_back(Inst);
+  return Code;
+}
+
+static InstructionListType emitPrefetchLoadPreIdx(const MCInst &Inst,
+    int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
+  MCRegister BaseReg = Inst.getOperand(2).getReg();
+  int64_t Imm9 = Inst.getOperand(3).getReg();
+
+  LLVM_DEBUG({
+    dbgs() << "Try to emit prefetch for LoadUI\n"
+           << "  BaseReg: " << BaseReg << '\n'
+           << "  Imm9: " << Imm9 << '\n'
+           << "  PrfOffset: " << PrfOffset << '\n'
+           << "  PrfOp: " << PrfOp << '\n'
+           << "  UsableReg: " << UsableReg << '\n';
+  });
+
+  int64_t Offset = Imm9 + PrfOffset;
+  auto Code = emitPrefetchImmOffset(BaseReg, Offset, PrfOp, UsableReg);
+  Code.emplace_back(Inst);
+  return Code;
+}
+
+static InstructionListType emitPrefetchLoadRO(const MCInst &Inst,
+    int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
+  InstructionListType Code;
+  if (UsableReg == 0) {
+    errs() << "BOLT-ERROR: No Usable Regs for LoadDataPrefetch\n";
+    return Code;
+  }
+  assert(AArch64::GPR64RegClass.contains(UsableReg));
+
+  MCRegister BaseReg = Inst.getOperand(1).getReg();
+  MCRegister OffReg = Inst.getOperand(2).getReg();
+  bool SignExtend = Inst.getOperand(3).getImm();
+  bool DoShift = Inst.getOperand(4).getImm();
+  bool IsGPR32 = AArch64::GPR32allRegClass.contains(OffReg);
+
+  LLVM_DEBUG({
+    dbgs() << "Try to emit prefetch for LoadRO\n"
+           << "  BaseReg: " << BaseReg << '\n'
+           << "  OffReg: " << OffReg << '\n'
+           << "  SignExtend: " << SignExtend << '\n'
+           << "  DoShift: " << DoShift << '\n'
+           << "  IsGPR32: " << IsGPR32 << '\n'
+           << "  PrfOffset: " << PrfOffset << '\n'
+           << "  PrfOp: " << PrfOp << '\n'
+           << "  UsableReg: " << UsableReg << '\n';
+  });
+
+  Code = createMOVImm(UsableReg, 64, PrfOffset);
+  if (IsGPR32) {
+    unsigned ShiftValue = DoShift ? getLoadROShift(Inst) : 0;
+    unsigned ExtendImm = AArch64_AM::getExtendEncoding(SignExtend ? AArch64_AM::SXTW : AArch64_AM::UXTW);
+    Code.emplace_back(MCInstBuilder(AArch64::ADDXrx)
+                          .addReg(UsableReg)
+                          .addReg(UsableReg)
+                          .addReg(OffReg)
+                          .addImm(ExtendImm << 3 | ShiftValue));
+  } else {
+    unsigned ShiftValue = DoShift ? getLoadROShift(Inst) : 0;
+    unsigned ExtendImm = AArch64_AM::getExtendEncoding(SignExtend ? AArch64_AM::SXTX : AArch64_AM::UXTX);
+    Code.emplace_back(MCInstBuilder(AArch64::ADDXrx64)
+                          .addReg(UsableReg)
+                          .addReg(UsableReg)
+                          .addReg(OffReg)
+                          .addImm(ExtendImm << 3 | ShiftValue));
+  }
+  Code.emplace_back(MCInstBuilder(AArch64::PRFMroX)
+                        .addImm(PrfOp)
+                        .addReg(BaseReg)
+                        .addReg(UsableReg)
+                        .addImm(0)
+                        .addImm(0));
+  Code.emplace_back(Inst);
+  return Code;
+}
 
 class AArch64MCPlusBuilder : public MCPlusBuilder {
 public:
@@ -3787,21 +3950,24 @@ public:
 
   InstructionListType
   createLoadDataPrefetch(const MCInst &Inst, int64_t PrfOffset,
-                         int64_t PrfOp, MCRegister UsableReg) const {
+                         int64_t PrfOp, MCRegister UsableReg) const override {
     LLVM_DEBUG(dbgs() << "BOLT-DEBUG: createLoadDataPrfetch: " << Inst << '\n');
 
     if (isLoadUnscaled(Inst)) {
       LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadUnscaled: " << Inst << '\n');
-
       return emitPrefetchLoadUnscaled(Inst, PrfOffset, PrfOp, UsableReg);
     } else if (isLoadUI(Inst)) {
       LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadUI: " << Inst << '\n');
-    } else if (isLoadRO(Inst)) {
-      LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadRO: " << Inst << '\n');
+      return emitPrefetchLoadUI(Inst, PrfOffset, PrfOp, UsableReg);
     } else if (isLoadPostIdx(Inst)) {
       LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadPostIdx: " << Inst << '\n');
+      return emitPrefetchLoadPostIdx(Inst, PrfOffset, PrfOp, UsableReg);
     } else if (isLoadPreIdx(Inst)) {
       LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadPreIdx: " << Inst << '\n');
+      return emitPrefetchLoadPreIdx(Inst, PrfOffset, PrfOp, UsableReg);
+    } else if (isLoadRO(Inst)) {
+      LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadRO: " << Inst << '\n');
+      return emitPrefetchLoadRO(Inst, PrfOffset, PrfOp, UsableReg);
     } else {
       LLVM_DEBUG(dbgs() << "BOLT-DEBUG: Not prefetchable: " << Inst << '\n');
     }

@@ -3635,13 +3635,6 @@ void RewriteInstance::processPrefetchHintsPreCFG() {
       continue;
     }
 
-    // TODO: Shall we relax this restriction?
-    if (PrefetchOffset >= 4096 || PrefetchOffset <= -4096) {
-      errs() << "BOLT-WARNING: offset should be in [-4095, 4095], "
-          << "unsupported offset in line '" << Str << "', skip it\n";
-      continue;
-    }
-
     Prefetches.emplace_back(PrefetchLoadPC, PrefetchOffset);
   }
 

@@ -49,6 +49,7 @@ void LoadDataPrefetchPass::runOnFunction(BinaryFunction &BF) {
 
       const int64_t PrfOffset =
           BC.MIB->getAnnotationAs<int64_t>(Inst, "LoadDataPrefetch");
+      BC.MIB->removeAnnotation(Inst, "LoadDataPrefetch");
 
       ProgramPoint PP(&Inst);
       MCRegister UsableReg = LA.scavengeRegAfter(PP);
@@ -57,6 +58,15 @@ void LoadDataPrefetchPass::runOnFunction(BinaryFunction &BF) {
 
       // TODO: How to handle prefetch from different levels?
       auto Code = BC.MIB->createLoadDataPrefetch(Inst, PrfOffset, 0, UsableReg);
+
+      LLVM_DEBUG({
+        dbgs() << "--------------------------------------------------\n";
+        dbgs() << Inst << '\n' << "-->\n";
+        for (const auto &E : Code)
+          dbgs() << E << '\n';
+        dbgs() << "--------------------------------------------------\n";
+      });
+
       I = BB.replaceInstruction(I, Code);
       std::advance(I, Code.size() - 1);
     }
