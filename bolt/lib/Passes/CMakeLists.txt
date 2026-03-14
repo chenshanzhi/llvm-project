@@ -19,6 +19,7 @@ add_llvm_library(LLVMBOLTPasses
   Inliner.cpp
   Instrumentation.cpp
   JTFootprintReduction.cpp
+  LoadDataPrefetchPass.cpp
   LongJmp.cpp
   LoopInversionPass.cpp
   LivenessAnalysis.cpp

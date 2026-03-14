@@ -2092,6 +2092,13 @@ public:
     return {};
   }
 
+  virtual InstructionListType
+  createLoadDataPrefetch(const MCInst &LoadInst, int64_t PrfOffset,
+                         int64_t PrfOp, MCRegister UsableReg) const {
+    llvm_unreachable("not implemented");
+    return {};
+  }
+
   /// Creates size-aware inline memcpy instruction. If \p KnownSize is provided,
   /// generates optimized code for that specific size. Falls back to regular
   /// createInlineMemcpy if size is unknown or not needed (e.g. with X86).

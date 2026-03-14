@@ -124,6 +124,11 @@ extern llvm::cl::opt<bool> UpdateDebugSections;
 // dbgs() for output within DEBUG().
 extern llvm::cl::opt<unsigned> Verbosity;
 
+// Specify a path to a file that contains prefetch hints.
+// Each line of the file takes the form 'load_pc,prefetch_byte_offset'
+extern llvm::cl::opt<std::string> LoadDataPrefetchHints;
+extern bool LoadDataPrefetchEnabled;
+
 /// Return true if we should process all functions in the binary.
 bool processAllFunctions();
 

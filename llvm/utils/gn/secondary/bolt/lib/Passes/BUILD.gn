@@ -33,6 +33,7 @@ static_library("Passes") {
     "Instrumentation.cpp",
     "JTFootprintReduction.cpp",
     "LivenessAnalysis.cpp",
+    "LoadDataPrefetchPass.cpp"
     "LongJmp.cpp",
     "LoopInversionPass.cpp",
     "MCF.cpp",

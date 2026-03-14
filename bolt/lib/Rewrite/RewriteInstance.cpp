@@ -3592,6 +3592,8 @@ void RewriteInstance::processMetadataPreCFG() {
   MetadataManager.runInitializersPreCFG();
 
   processProfileDataPreCFG();
+
+  processPrefetchHintsPreCFG();
 }
 
 void RewriteInstance::processMetadataPostCFG() {
@@ -3609,6 +3611,59 @@ void RewriteInstance::processProfileDataPreCFG() {
 
   if (Error E = ProfileReader->readProfilePreCFG(*BC))
     report_error("cannot read profile pre-CFG", std::move(E));
+}
+
+void RewriteInstance::processPrefetchHintsPreCFG() {
+  if (!BC->isAArch64() || opts::LoadDataPrefetchHints.empty())
+    return;
+
+  std::vector<std::pair<uint64_t, int64_t>> Prefetches;
+  std::ifstream File(opts::LoadDataPrefetchHints, std::ios::in);
+  std::string Line;
+  while (std::getline(File, Line)) {
+    if (std::all_of(Line.begin(), Line.end(), isspace))
+      continue;
+    StringRef Str(Line);
+    auto [Address, Offset] = Str.split(':');
+
+    uint64_t PrefetchLoadPC;
+    int64_t PrefetchOffset;
+    if (Address.getAsInteger(0, PrefetchLoadPC) ||
+        Offset.getAsInteger(0, PrefetchOffset)) {
+      if (opts::Verbosity >= 1)
+        errs() << "BOLT-WARNING: fail to parse line '" << Str << "', skip it\n";
+      continue;
+    }
+
+    // TODO: Shall we relax this restriction?
+    if (PrefetchOffset >= 4096 || PrefetchOffset <= -4096) {
+      errs() << "BOLT-WARNING: offset should be in [-4095, 4095], "
+          << "unsupported offset in line '" << Str << "', skip it\n";
+      continue;
+    }
+
+    Prefetches.emplace_back(PrefetchLoadPC, PrefetchOffset);
+  }
+
+  outs() << "BOLT-INFO: Prepare Load Data Prefetch\n";
+
+  for (auto &BFI : BC->getBinaryFunctions()) {
+    BinaryFunction &BF = BFI.second;
+    for (auto [PrefetchLoadPC, PrefetchOffset] : Prefetches) {
+      if (!BF.containsAddress(PrefetchLoadPC))
+        continue;
+
+      uint64_t Offset = PrefetchLoadPC - BF.getAddress();
+      if (MCInst *MI = BF.getInstructionAtOffset(Offset)) {
+        // TODO: check MI is load?
+        BC->MIB->addAnnotation(*MI, "LoadDataPrefetch", PrefetchOffset);
+        BF.incrLoadDataPrefetchCount();
+        opts::LoadDataPrefetchEnabled = true;
+        if (opts::Verbosity >= 1)
+          BC->printInstruction(outs(), *MI);
+      }
+    }
+  }
 }
 
 void RewriteInstance::processProfileData() {

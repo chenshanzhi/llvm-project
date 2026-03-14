@@ -162,6 +162,8 @@ private:
 
   void processProfileDataPreCFG();
 
+  void processPrefetchHintsPreCFG();
+
   /// Associate profile data with functions and data objects.
   void processProfileData();
 

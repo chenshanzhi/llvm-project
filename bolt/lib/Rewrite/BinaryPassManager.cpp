@@ -21,6 +21,7 @@
 #include "bolt/Passes/Inliner.h"
 #include "bolt/Passes/Instrumentation.h"
 #include "bolt/Passes/JTFootprintReduction.h"
+#include "bolt/Passes/LoadDataPrefetchPass.h"
 #include "bolt/Passes/LongJmp.h"
 #include "bolt/Passes/LoopInversionPass.h"
 #include "bolt/Passes/MCF.h"
@@ -383,6 +384,9 @@ Error BinaryFunctionPassManager::runAllPasses(BinaryContext &BC) {
                        opts::AsmDump.getNumOccurrences());
 
   if (BC.isAArch64()) {
+    Manager.registerPass(std::make_unique<LoadDataPrefetchPass>(),
+        opts::LoadDataPrefetchEnabled);
+
     Manager.registerPass(std::make_unique<FixRelaxations>(PrintFixRelaxations));
 
     Manager.registerPass(

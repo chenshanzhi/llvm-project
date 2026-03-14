@@ -308,6 +308,13 @@ cl::opt<unsigned>
               cl::init(0), cl::ZeroOrMore, cl::cat(BoltCategory),
               cl::sub(cl::SubCommand::getAll()));
 
+cl::opt<std::string> LoadDataPrefetchHints(
+    "load-data-prefetch-hints",
+    cl::desc("file containing prefetch hints"),
+    cl::Hidden,
+    cl::cat(BoltCategory));
+bool LoadDataPrefetchEnabled = false;
+
 bool processAllFunctions() {
   if (opts::AggregateOnly)
     return false;
