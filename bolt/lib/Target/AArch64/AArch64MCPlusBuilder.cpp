@@ -485,7 +485,7 @@ static InstructionListType emitPrefetchLoadPostIdx(const MCInst &Inst,
 static InstructionListType emitPrefetchLoadPreIdx(const MCInst &Inst,
     int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
   MCRegister BaseReg = Inst.getOperand(2).getReg();
-  int64_t Imm9 = Inst.getOperand(3).getReg();
+  int64_t Imm9 = Inst.getOperand(3).getImm();
 
   LLVM_DEBUG({
     dbgs() << "Try to emit prefetch for LoadUI\n"
