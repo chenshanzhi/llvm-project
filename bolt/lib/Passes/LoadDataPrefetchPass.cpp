@@ -12,6 +12,7 @@
 
 #include "bolt/Passes/LoadDataPrefetchPass.h"
 #include "bolt/Core/BinaryFunctionCallGraph.h"
+#include "bolt/Core/ParallelUtilities.h"
 #include "bolt/Passes/DataflowInfoManager.h"
 #include "bolt/Passes/LivenessAnalysis.h"
 #include "bolt/Passes/RegAnalysis.h"
@@ -74,17 +75,12 @@ void LoadDataPrefetchPass::runOnFunction(BinaryFunction &BF) {
 }
 
 Error LoadDataPrefetchPass::runOnFunctions(BinaryContext &BC) {
-  for (auto &BFI : BC.getBinaryFunctions()) {
-    BinaryFunction &BF = BFI.second;
+  ParallelUtilities::WorkFuncTy WorkFun = [&](BinaryFunction &BF) {
     runOnFunction(BF);
-  }
-
-  // ParallelUtilities::WorkFuncTy WorkFun = [&](BinaryFunction &BF) {
-  //   runOnFunction(BF);
-  // };
-  // ParallelUtilities::runOnEachFunction(
-  //     BC, ParallelUtilities::SchedulingPolicy::SP_TRIVIAL, WorkFun, nullptr,
-  //     "LoadDataPrefetchPass");
+  };
+  ParallelUtilities::runOnEachFunction(
+      BC, ParallelUtilities::SchedulingPolicy::SP_TRIVIAL, WorkFun, nullptr,
+      "LoadDataPrefetchPass");
   return Error::success();
 }
 
