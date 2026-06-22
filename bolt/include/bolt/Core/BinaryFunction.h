@@ -1516,7 +1516,7 @@ public:
   uint64_t getFunctionNumber() const { return FunctionNumber; }
 
   void incrLoadDataPrefetchCount() { ++LoadDataPrefetchCount; }
-  uint64_t getLoadDataPrefetchCount() { return LoadDataPrefetchCount; }
+  uint64_t getLoadDataPrefetchCount() const { return LoadDataPrefetchCount; }
 
   /// Return true if the given address \p PC is inside the function body.
   bool containsAddress(uint64_t PC, bool UseMaxSize = false) const {

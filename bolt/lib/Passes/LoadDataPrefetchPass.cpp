@@ -23,9 +23,8 @@ namespace llvm {
 namespace bolt {
 
 void LoadDataPrefetchPass::runOnFunction(BinaryFunction &BF) {
+  assert(BF.getLoadDataPrefetchCount() != 0);
   BinaryContext &BC = BF.getBinaryContext();
-  if (!BF.getLoadDataPrefetchCount())
-    return;
 
   LLVM_DEBUG(dbgs() << "Function: " << BF.getPrintName()
       << ", LoadDataPrefetchCount: " << BF.getLoadDataPrefetchCount() << '\n');
@@ -40,47 +39,52 @@ void LoadDataPrefetchPass::runOnFunction(BinaryFunction &BF) {
   for (BinaryBasicBlock &BB : BF) {
     for (auto I = BB.begin(); I != BB.end(); ++I) {
       MCInst &Inst = *I;
-      if (!BC.MIB->hasAnnotation(Inst, "LoadDataPrefetch"))
-        continue;
+      if (BC.MIB->hasAnnotation(Inst, "LoadDataPrefetch")) {
+        auto L = BC.scopeLock();
 
-      LLVM_DEBUG({
-        dbgs() << "Found LoadDataPrefetch Inst: ";
-        BC.printInstruction(dbgs(), Inst);
-      });
+        LLVM_DEBUG({
+          dbgs() << "Found LoadDataPrefetch Inst: ";
+          BC.printInstruction(dbgs(), Inst);
+        });
 
-      const int64_t PrfOffset =
-          BC.MIB->getAnnotationAs<int64_t>(Inst, "LoadDataPrefetch");
-      BC.MIB->removeAnnotation(Inst, "LoadDataPrefetch");
+        const int64_t PrfOffset =
+            BC.MIB->getAnnotationAs<int64_t>(Inst, "LoadDataPrefetch");
+        BC.MIB->removeAnnotation(Inst, "LoadDataPrefetch");
 
-      ProgramPoint PP(&Inst);
-      MCRegister UsableReg = LA.scavengeRegAfter(PP);
+        ProgramPoint PP(&Inst);
+        MCRegister UsableReg = LA.scavengeRegAfter(PP);
 
-      LLVM_DEBUG(dbgs() << "UsableReg: " << UsableReg << '\n');
+        LLVM_DEBUG(dbgs() << "UsableReg: " << UsableReg << '\n');
 
-      // TODO: How to handle prefetch from different levels?
-      auto Code = BC.MIB->createLoadDataPrefetch(Inst, PrfOffset, 0, UsableReg);
+        // TODO: How to handle prefetch from different levels?
+        auto Code = BC.MIB->createLoadDataPrefetch(Inst, PrfOffset, 0, UsableReg);
 
-      LLVM_DEBUG({
-        dbgs() << "--------------------------------------------------\n";
-        dbgs() << Inst << '\n' << "-->\n";
-        for (const auto &E : Code)
-          dbgs() << E << '\n';
-        dbgs() << "--------------------------------------------------\n";
-      });
+        LLVM_DEBUG({
+          dbgs() << "--------------------------------------------------\n";
+          dbgs() << Inst << '\n' << "-->\n";
+          for (const auto &E : Code)
+            dbgs() << E << '\n';
+          dbgs() << "--------------------------------------------------\n";
+        });
 
-      I = BB.replaceInstruction(I, Code);
-      std::advance(I, Code.size() - 1);
+        I = BB.replaceInstruction(I, Code);
+        std::advance(I, Code.size() - 1);
+      }
     }
   }
 }
 
 Error LoadDataPrefetchPass::runOnFunctions(BinaryContext &BC) {
-  ParallelUtilities::WorkFuncTy WorkFun = [&](BinaryFunction &BF) {
-    runOnFunction(BF);
+  ParallelUtilities::WorkFuncWithAllocTy WorkFunc =
+      [&](BinaryFunction &BF, MCPlusBuilder::AllocatorIdTy AllocId) {
+        runOnFunction(BF);
+      };
+  ParallelUtilities::PredicateTy SkipPred = [&](const BinaryFunction &BF) {
+    return !BF.getLoadDataPrefetchCount();
   };
-  ParallelUtilities::runOnEachFunction(
-      BC, ParallelUtilities::SchedulingPolicy::SP_TRIVIAL, WorkFun, nullptr,
-      "LoadDataPrefetchPass");
+  ParallelUtilities::runOnEachFunctionWithUniqueAllocId(
+      BC, ParallelUtilities::SchedulingPolicy::SP_INST_LINEAR, WorkFunc,
+      SkipPred, "load-data-prefetch", /*ForceSequential=*/true);
   return Error::success();
 }
 
