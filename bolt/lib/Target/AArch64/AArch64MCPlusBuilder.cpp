@@ -375,6 +375,48 @@ static int getLoadROShift(const MCInst &Inst) {
   }
 }
 
+static bool isLoadPairOffset(const MCInst &Inst) {
+  switch (Inst.getOpcode()) {
+  case AArch64::LDPWi:  // ldp     w1, w2, [sp, #32]
+  case AArch64::LDPXi:  // ldp     x1, x2, [sp, #32]
+  case AArch64::LDPSi:  // ldp     s1, s2, [sp, #32]
+  case AArch64::LDPDi:  // ldp     d1, d2, [sp, #32]
+  case AArch64::LDPQi:  // ldp     q1, q2, [sp, #32]
+  case AArch64::LDPSWi: // ldpsw   x1, x2, [sp, #32]
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool isLoadPairPreIdx(const MCInst &Inst) {
+  switch (Inst.getOpcode()) {
+  case AArch64::LDPWpre:  // ldp     w1, w2, [sp, #32]!
+  case AArch64::LDPXpre:  // ldp     x1, x2, [sp, #32]!
+  case AArch64::LDPSpre:  // ldp     s1, s2, [sp, #32]!
+  case AArch64::LDPDpre:  // ldp     d1, d2, [sp, #32]!
+  case AArch64::LDPQpre:  // ldp     q1, q2, [sp, #32]!
+  case AArch64::LDPSWpre: // ldpsw   x1, x2, [sp, #32]!
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool isLoadPairPostIdx(const MCInst &Inst) {
+  switch (Inst.getOpcode()) {
+  case AArch64::LDPWpost:  // ldp     w1, w2, [sp], #32
+  case AArch64::LDPXpost:  // ldp     x1, x2, [sp], #32
+  case AArch64::LDPSpost:  // ldp     s1, s2, [sp], #32
+  case AArch64::LDPDpost:  // ldp     d1, d2, [sp], #32
+  case AArch64::LDPQpost:  // ldp     q1, q2, [sp], #32
+  case AArch64::LDPSWpost: // ldpsw   x1, x2, [sp], #32
+    return true;
+  default:
+    return false;
+  }
+}
+
 static std::optional<MCInst>
 tryEmitOnePrefetchInst(MCRegister BaseReg, int64_t Imm, int64_t PrfOp) {
   // Try to generate one PRFM (immediate)
@@ -553,6 +595,67 @@ static InstructionListType emitPrefetchLoadRO(const MCInst &Inst,
                         .addReg(UsableReg)
                         .addImm(0)
                         .addImm(0));
+  Code.emplace_back(Inst);
+  return Code;
+}
+
+static InstructionListType emitPrefetchLoadPairOffset(const MCInst &Inst,
+    int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
+
+  int Scale = AArch64InstrInfo::getMemScale(Inst.getOpcode());
+  MCRegister BaseReg = Inst.getOperand(2).getReg();
+  int64_t Imm7 = Inst.getOperand(3).getImm();
+
+  LLVM_DEBUG({
+    dbgs() << "Try to emit prefetch for LoadPairOffset\n"
+           << "  BaseReg: " << BaseReg << '\n'
+           << "  Imm7: " << Imm7 << '\n'
+           << "  Scale: " << Scale << '\n'
+           << "  PrfOffset: " << PrfOffset << '\n'
+           << "  PrfOp: " << PrfOp << '\n'
+           << "  UsableReg: " << UsableReg << '\n';
+  });
+
+  int64_t Offset = (Imm7 * Scale) + PrfOffset;
+  auto Code = emitPrefetchImmOffset(BaseReg, Offset, PrfOp, UsableReg);
+  Code.emplace_back(Inst);
+  return Code;
+}
+
+static InstructionListType emitPrefetchLoadPairPreIdx(const MCInst &Inst,
+    int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
+  MCRegister BaseReg = Inst.getOperand(3).getReg();
+  int64_t Imm7 = Inst.getOperand(4).getImm();
+
+  LLVM_DEBUG({
+    dbgs() << "Try to emit prefetch for LoadPairPreIdx\n"
+           << "  BaseReg: " << BaseReg << '\n'
+           << "  Imm7: " << Imm7 << '\n'
+           << "  PrfOffset: " << PrfOffset << '\n'
+           << "  PrfOp: " << PrfOp << '\n'
+           << "  UsableReg: " << UsableReg << '\n';
+  });
+
+  int64_t Offset = Imm7 + PrfOffset;
+  auto Code = emitPrefetchImmOffset(BaseReg, Offset, PrfOp, UsableReg);
+  Code.emplace_back(Inst);
+  return Code;
+}
+
+static InstructionListType emitPrefetchLoadPairPostIdx(const MCInst &Inst,
+    int64_t PrfOffset, int64_t PrfOp, MCRegister UsableReg) {
+
+  MCRegister BaseReg = Inst.getOperand(3).getReg();
+
+  LLVM_DEBUG({
+    dbgs() << "Try to emit prefetch for LoadPairPostIdx\n"
+           << "  BaseReg: " << BaseReg << '\n'
+           << "  PrfOffset: " << PrfOffset << '\n'
+           << "  PrfOp: " << PrfOp << '\n'
+           << "  UsableReg: " << UsableReg << '\n';
+  });
+
+  auto Code = emitPrefetchImmOffset(BaseReg, PrfOffset, PrfOp, UsableReg);
   Code.emplace_back(Inst);
   return Code;
 }
@@ -3968,6 +4071,15 @@ public:
     } else if (isLoadRO(Inst)) {
       LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadRO: " << Inst << '\n');
       return emitPrefetchLoadRO(Inst, PrfOffset, PrfOp, UsableReg);
+    } else if (isLoadPairOffset(Inst)) {
+      LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadPairOffset: " << Inst << '\n');
+      return emitPrefetchLoadPairOffset(Inst, PrfOffset, PrfOp, UsableReg);
+    } else if (isLoadPairPreIdx(Inst)) {
+      LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadPairPreIdx: " << Inst << '\n');
+      return emitPrefetchLoadPairPreIdx(Inst, PrfOffset, PrfOp, UsableReg);
+    } else if (isLoadPairPostIdx(Inst)) {
+      LLVM_DEBUG(dbgs() << "BOLT-DEBUG: isLoadPairPostIdx: " << Inst << '\n');
+      return emitPrefetchLoadPairPostIdx(Inst, PrfOffset, PrfOp, UsableReg);
     } else {
       LLVM_DEBUG(dbgs() << "BOLT-DEBUG: Not prefetchable: " << Inst << '\n');
     }
