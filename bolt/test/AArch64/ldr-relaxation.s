@@ -340,6 +340,45 @@ _start:
   .size _start, .-_start
 .endif
 
+# RUN: llvm-mc -filetype=obj -triple aarch64-unknown-unknown \
+# RUN:    --defsym RELAX_MISALIGNED_LDR=1 %s -o %t.o
+# RUN: %clang %cflags %t.o -o %t.so -Wl,-q
+# RUN: not llvm-bolt %t.so -o %t.bolt 2>&1 | \
+# RUN:    FileCheck %s --check-prefix=MISALIGNED_LDR
+
+# MISALIGNED_LDR: BOLT-ERROR: JITLink failed: PAGEOFF12 target is not aligned
+.ifdef RELAX_MISALIGNED_LDR
+  .text
+  .align 4
+  .global _start
+  .type _start, %function
+_start:
+  .cfi_startproc
+  ldr x0, _bar_plus_0x4
+  ret
+  .cfi_endproc
+  .size _start, .-_start
+.endif
+
+# RUN: llvm-mc -filetype=obj -triple aarch64-unknown-unknown \
+# RUN:    --defsym RELAX_MISALIGNED_LDR_FP=1 %s -o %t.o
+# RUN: %clang %cflags %t.o -o %t.so -Wl,-q
+# RUN: not llvm-bolt %t.so -o %t.bolt -clone-constant-island=false 2>&1 | \
+# RUN:    FileCheck %s --check-prefix=MISALIGNED_LDR_FP
+
+# MISALIGNED_LDR_FP: BOLT-ERROR: JITLink failed: PAGEOFF12 target is not aligned
+.ifdef RELAX_MISALIGNED_LDR_FP
+  .text
+  .global _start
+  .type _start, %function
+_start:
+  .cfi_startproc
+  ldr q0, _bar_plus_0x8
+  ret
+  .cfi_endproc
+  .size _start, .-_start
+.endif
+
   .section .text_cold
   .global _foo
   .align 3
@@ -347,8 +386,18 @@ _foo:
   .long 0x12345678
   .size _foo, .-_foo
   .global _bar
+  .global _bar_plus_0x4
+  .global _bar_plus_0x8
+  .global _bar_plus_0xc
   .align 4
 _bar:
-  .xword  0x0000000000000000
-  .xword  0x0000000000000000
+  .word 0x00000000
+_bar_plus_0x4:
+  .word 0x11111111
+_bar_plus_0x8:
+  .word 0x22222222
+_bar_plus_0xc:
+  .word 0x33333333
+  .xword 0x0000000000000000
+  .xword 0x0000000000000000
   .size _bar, .-_bar
