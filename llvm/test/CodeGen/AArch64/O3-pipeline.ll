@@ -263,6 +263,7 @@
 ; CHECK-NEXT:       Stack Frame Layout Analysis
 ; CHECK-NEXT:       Pseudo Probe Inserter
 ; CHECK-NEXT:       Unpack machine instruction bundles
+; CHECK-NEXT:       AArch64 Stack Guard FEAT_HBC
 ; CHECK-NEXT:       Lazy Machine Block Frequency Analysis
 ; CHECK-NEXT:       Machine Optimization Remark Emitter
 ; CHECK-NEXT:       AArch64 Assembly Printer

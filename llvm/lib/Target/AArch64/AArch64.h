@@ -48,6 +48,7 @@ class ModulePass;
 FunctionPass *createAArch64DeadRegisterDefinitions();
 FunctionPass *createAArch64RedundantCopyEliminationPass();
 FunctionPass *createAArch64RedundantCondBranchPass();
+FunctionPass *createAArch64StackGuardHBCLegacyPass();
 FunctionPass *createAArch64CondBrTuning();
 FunctionPass *createAArch64CompressJumpTablesPass();
 FunctionPass *createAArch64ConditionalCompares();
@@ -194,6 +195,7 @@ void initializeAArch64RedundantCondBranchLegacyPass(PassRegistry &);
 void initializeAArch64SIMDInstrOptLegacyPass(PassRegistry &);
 void initializeAArch64SLSHardeningLegacyPass(PassRegistry &);
 void initializeAArch64SpeculationHardeningPass(PassRegistry &);
+void initializeAArch64StackGuardHBCLegacyPass(PassRegistry &);
 void initializeAArch64StackTaggingPass(PassRegistry &);
 void initializeAArch64StackTaggingPreRALegacyPass(PassRegistry &);
 void initializeAArch64StorePairSuppressPass(PassRegistry&);
@@ -254,6 +256,13 @@ public:
 
 class AArch64RedundantCondBranchPass
     : public OptionalPassInfoMixin<AArch64RedundantCondBranchPass> {
+public:
+  PreservedAnalyses run(MachineFunction &MF,
+                        MachineFunctionAnalysisManager &MFAM);
+};
+
+class AArch64StackGuardHBCPass
+    : public OptionalPassInfoMixin<AArch64StackGuardHBCPass> {
 public:
   PreservedAnalyses run(MachineFunction &MF,
                         MachineFunctionAnalysisManager &MFAM);

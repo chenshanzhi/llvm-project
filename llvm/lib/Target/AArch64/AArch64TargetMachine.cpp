@@ -277,6 +277,7 @@ LLVMInitializeAArch64Target() {
   initializeSMEPeepholeOptPass(PR);
   initializeAArch64SpeculationHardeningPass(PR);
   initializeAArch64SLSHardeningLegacyPass(PR);
+  initializeAArch64StackGuardHBCLegacyPass(PR);
   initializeAArch64StackTaggingPass(PR);
   initializeAArch64StackTaggingPreRALegacyPass(PR);
   initializeAArch64LowerHomogeneousPrologEpilogLegacyPass(PR);
@@ -976,6 +977,13 @@ void AArch64PassConfig::addPreEmitPass2() {
   // SVE bundles move prefixes with destructive operations. BLR_RVMARKER pseudo
   // instructions are lowered to bundles as well.
   addPass(createUnpackMachineBundlesLegacy(nullptr));
+
+  // Rewrite stack protector check branches (Bcc -> BCcc). This must run after
+  // addPostBBSections() (branch relaxation, SLS hardening, ...), which would
+  // otherwise not recognize BCcc. BC.cond is encoding-compatible with B.cond,
+  // so nothing runs after this point that needs to tell them apart. FEAT_HBC
+  // only.
+  addPass(createAArch64StackGuardHBCLegacyPass());
 }
 
 bool AArch64PassConfig::addRegAssignAndRewriteOptimized() {
