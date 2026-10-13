@@ -13,6 +13,11 @@
 // natural fit for stack protector checks: the conditional branch to the
 // failure block is almost never taken.
 //
+// The transformation is a policy choice, controlled per target by the
+// "stack-guard-hbc" subtarget feature (default off, enabled by -mcpu=hip12
+// or explicitly via -mattr=+stack-guard-hbc), and additionally requires
+// FEAT_HBC ("hbc") to be available.
+//
 // This pass runs as the very last pre-emit step, i.e. after register
 // allocation, machine block placement and branch relaxation. BC.cond is
 // encoding-compatible with B.cond (same operand list, same 19-bit PC-relative
@@ -83,7 +88,9 @@ static bool isStackProtectorFailTarget(const MachineOperand &MO) {
 
 static bool runAArch64StackGuardHBC(MachineFunction &MF) {
   const AArch64Subtarget &ST = MF.getSubtarget<AArch64Subtarget>();
-  if (!ST.hasHBC())
+  // The rewrite is opt-in per CPU ("stack-guard-hbc", default off) and can
+  // only be done when FEAT_HBC is available.
+  if (!ST.hasStackGuardHBC() || !ST.hasHBC())
     return false;
 
   // Quick bail-out if the function has no stack protector at all.

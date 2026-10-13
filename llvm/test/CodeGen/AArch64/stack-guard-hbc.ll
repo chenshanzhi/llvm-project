@@ -1,11 +1,22 @@
-; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mattr=+hbc -verify-machineinstrs < %s | FileCheck %s --check-prefix=HBC
-; RUN: llc -mtriple=aarch64-unknown-linux-gnu -verify-machineinstrs < %s | FileCheck %s --check-prefix=NOHBC
-; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mattr=+hbc -global-isel < %s | FileCheck %s --check-prefix=HBC
-; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mattr=+hbc -O0 < %s | FileCheck %s --check-prefix=HBC
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mcpu=hip12 -verify-machineinstrs < %s | FileCheck %s --check-prefix=HBC
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mcpu=hip12 -global-isel < %s | FileCheck %s --check-prefix=HBC
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mcpu=hip12 -O0 < %s | FileCheck %s --check-prefix=HBC
+; Enabled explicitly on another CPU.
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mattr=+hbc,+stack-guard-hbc < %s | FileCheck %s --check-prefix=HBC
+; Disabled explicitly on hip12.
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mcpu=hip12 -mattr=-stack-guard-hbc < %s | FileCheck %s --check-prefix=NOHBC
+; Disabled on hip12 by turning FEAT_HBC itself off.
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mcpu=hip12 -mattr=-hbc < %s | FileCheck %s --check-prefix=NOHBC
+; Off by default: the hbc feature alone is not enough.
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mattr=+hbc < %s | FileCheck %s --check-prefix=NOHBC
+; The policy feature alone is not enough without FEAT_HBC.
+; RUN: llc -mtriple=aarch64-unknown-linux-gnu -mattr=+stack-guard-hbc < %s | FileCheck %s --check-prefix=NOHBC
 
 ; FEAT_HBC adds BC.cond, a variant of B.cond hinting that the branch is
 ; nearly always resolved the same way. The AArch64StackGuardHBC pass rewrites
-; the (almost never taken) stack protector check branch to use it.
+; the (almost never taken) stack protector check branch to use it. The
+; rewrite is gated on the "stack-guard-hbc" subtarget feature, which is off
+; by default and enabled by -mcpu=hip12.
 
 define i32 @stack_guard_check(ptr nocapture readonly %src) #0 {
 ; HBC-LABEL: stack_guard_check:

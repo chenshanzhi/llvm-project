@@ -665,6 +665,16 @@ def FeatureNoSVEFPLD1R : SubtargetFeature<"no-sve-fp-ld1r",
   "NoSVEFPLD1R", "true", "Avoid using LD1RX instructions for FP",
   [], InlineIgnore>;
 
+// Policy feature (not tied to -march): opt in to rewriting stack protector
+// check branches from B.cond to FEAT_HBC BC.cond. Off by default; enabled
+// by -mcpu=hip12, or explicitly via -mattr=+stack-guard-hbc. FEAT_HBC
+// itself (the hbc feature) must be enabled as well for the rewrite to
+// actually happen.
+def FeatureStackGuardHBC : SubtargetFeature<"stack-guard-hbc",
+  "HasStackGuardHBC", "true",
+  "Use FEAT_HBC BC.cond for stack protector checks",
+  [], InlineIgnore>;
+
 def FeatureZCRegMoveGPR64 : SubtargetFeature<"zcm-gpr64", "HasZeroCycleRegMoveGPR64", "true",
                                         "Has zero-cycle register moves for GPR64 registers",
                                         [], InlineIgnore>;
